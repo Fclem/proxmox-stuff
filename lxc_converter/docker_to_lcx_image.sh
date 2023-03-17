@@ -1,5 +1,29 @@
 #!/bin/bash
 
+# Variables that enable pretty output
+RED="\033[31m"
+GREEN="\033[32m"
+BOLDGREEN="\033[1;32m"
+BOLDWHITE="\033[1;37m"
+BLUE="\033[0;34m"         # Blue
+ENDCOLOR="\033[0;0m"
+
+ENV_SPECS="The environment name can only contain lower case alphanumerical characters, and must be between 3 and 10 characters long"
+
+function runEcho {
+    # shellcheck disable=SC2145
+    echo -e "${BOLDGREEN}Executing '${ENDCOLOR}${GREEN}${@}${ENDCOLOR}${BOLDGREEN}' ...${ENDCOLOR}"
+}
+
+# We log the commands by prefixing them with `run` function
+function run {
+    # shellcheck disable=SC2145
+    runEcho "${@}"
+
+    # shellcheck disable=SC2068
+    eval ${@}
+}
+
 #lxc-create <<name>> -t oci -- --url docker://alpine:latest
 
 # inputs
@@ -14,19 +38,24 @@ target_merged="${target_path}-merged"
 target_merged_rootfs="${target_merged}/rootfs"
 target_merged_base_image="${target_merged}/${base_image}"
 
-apt update && apt install skopeo umoci jq -y && \
+run apt update && apt install skopeo umoci jq -y && \
 # make lxcpath folder
-mkdir -p ${lxcpath} | true
+run mkdir -p ${lxcpath} | true
 # make merged folder
-mkdir -p ${target_merged} | true
+run mkdir -p ${target_merged} | true
 # convert docker image to LCI
-lxc-create ${target_name} -t oci --lxcpath ${lxcpath} -- --url docker://${target_img} && \
+run lxc-create ${target_name} -t oci --lxcpath ${lxcpath} -- --url docker://${target_img} && \
 # copy base image
-cp /var/lib/vz/template/cache/${base_image} ${target_merged}/ && \  # TODO replace with rsync
-tar xvf ${target_merged_base_image} ${target_merged_rootfs}/ && \
-rm ${target_merged_base_image}
+run cp /var/lib/vz/template/cache/${base_image} ${target_merged}/ && \  # TODO replace with rsync
+run tar xvf ${target_merged_base_image} ${target_merged_rootfs}/ && \
+run rm ${target_merged_base_image}
 # copy container rootfs over base image
-rsync --ignore-existing -a ${target_rootfs}/ ${target_merged_rootfs}/ && \
-cd ${lxcpath} && \
+run rsync --ignore-existing -a ${target_rootfs}/ ${target_merged_rootfs}/ && \
+run cd ${lxcpath} && \
 # compress merged rootfs
-tar czvf ${target_name}.tar.gz -C ${target_merged_rootfs}/ .
+run tar czvf ${target_path}.tar.gz -C ${target_merged_rootfs}/ . && \
+# move the new image to proper pve folder
+run mv ${target_path}.tar.gz /var/lib/vz/template/cache/ && \
+# cleanup
+run rm -fr ${target_path} ${target_merged} && \
+echo -e "${BOLDGREEN}Done.${ENDCOLOR}"
