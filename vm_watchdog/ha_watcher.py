@@ -4,11 +4,14 @@ import os
 from time import sleep
 import datetime
 
-hostname = "192.168.0.1"
+hostname = "192.168.0.5"
+port = 8123
 # hostname = "home.fiere.fr"
-vm_id = 101
-interval = 5
+vm_id = 104
+interval = 10
+deadline = 10
 add_ts = False
+backend = 'curl'  # 'ping'
 
 
 def f_print(*args, **kwargs):
@@ -30,14 +33,17 @@ def is_running():
     return str(get_status()).replace('\n', '').strip() == 'status: running'
 
 
-def is_host_up(deadline=3):
-    return os.system("ping -w %d -c 1 %s >/dev/null" % (deadline, hostname)) == 0
+def is_host_up(deadline=3, init=False):
+    if init or backend == 'ping':
+        return os.system("ping -w %d -c 1 %s >/dev/null" % (deadline, hostname)) == 0
+    elif backend == 'curl':
+        return os.system("curl -L --insecure -s -m %d %s:%d >/dev/null" % (deadline, hostname, port)) == 0
 
 
-def wait_for_host_to_be_online():
-    if not is_host_up(1):
+def wait_for_host_to_be_online(init=False):
+    if not is_host_up(1, init):
         ts_print('waiting for host %s to come up' % hostname)
-        while not is_host_up(1):
+        while not is_host_up(1, init):
             f_print('.', end='')
         f_print('')
 
@@ -54,12 +60,12 @@ def wait_for_vm_to_be_up():
 
 def cycle_vm():
     ts_print('Restarting VM %d' % vm_id)
-    ret = os.system('qm stop %d && qm start %d' % (vm_id, vm_id))
+    ret = os.system('qm reset %d' % vm_id)
     ts_print('(%d) done' % ret)
 
 
 def ping():
-    if is_host_up():
+    if is_host_up(deadline):
         ts_print(hostname, 'is up :D')
     else:
         ts_print(hostname, 'is down !')
@@ -70,7 +76,7 @@ def ping():
 
 def watchdog():
     wait_for_vm_to_be_up()
-    wait_for_host_to_be_online()
+    wait_for_host_to_be_online(True)
     while True:
         ping()
         sleep(interval)

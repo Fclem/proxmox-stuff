@@ -6,8 +6,9 @@ import datetime
 
 hostname = "192.168.0.1"
 # hostname = "home.fiere.fr"
-vm_id = 101
+vm_id = 100
 interval = 5
+deadline = 30
 add_ts = False
 
 
@@ -43,6 +44,7 @@ def wait_for_host_to_be_online():
 
 
 def wait_for_vm_to_be_up():
+
     if not is_running():
         ts_print("VM is down, waiting for it to start")
         while not is_running():
@@ -59,7 +61,7 @@ def cycle_vm():
 
 
 def ping():
-    if is_host_up():
+    if is_host_up(deadline):
         ts_print(hostname, 'is up :D')
     else:
         ts_print(hostname, 'is down !')
